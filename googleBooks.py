@@ -83,7 +83,7 @@ jsonOut = []
 def getBooks():
     count = 0
     books = []
-    almaUrl = f"https://api-na.hosted.exlibrisgroup.com/almaws/v1/analytics/reports?path=%2Fshared%2FNortheastern%20University%2FJohnShared%2FAPI%2FNewBooksWeb&limit=25&apikey={almaKey}"
+    almaUrl = f"https://api-na.hosted.exlibrisgroup.com/almaws/v1/analytics/reports?path=%2Fshared%2FNortheastern%20University%2FJohnShared%2FAPI%2FNewBooksWeb&limit=50&apikey={almaKey}"
     print(almaUrl)
     response = requests.get(almaUrl)
     if response.status_code == 200:

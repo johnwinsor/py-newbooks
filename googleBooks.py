@@ -98,7 +98,7 @@ def getBooks():
             book['mmsId'] = mmsId
             
             isbns = row['Column3']
-            match = re.match(r'.*(978\d{10})', isbns)
+            match = re.match(r'.*(9\d{12})', isbns)
             isbn = match.groups()[0]
             print(isbn)
             book['isbn'] = isbn

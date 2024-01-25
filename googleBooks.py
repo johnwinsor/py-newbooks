@@ -10,6 +10,8 @@ import re
 
 import googleBooksEnv
 
+records = sys.argv[1]
+
 outfile = googleBooksEnv.path
 googleKey = googleBooksEnv.key
 almaKey = googleBooksEnv.almaKey
@@ -83,7 +85,7 @@ jsonOut = []
 def getBooks():
     count = 0
     books = []
-    almaUrl = f"https://api-na.hosted.exlibrisgroup.com/almaws/v1/analytics/reports?path=%2Fshared%2FNortheastern%20University%2FJohnShared%2FAPI%2FNewBooksWeb&limit=50&apikey={almaKey}"
+    almaUrl = f"https://api-na.hosted.exlibrisgroup.com/almaws/v1/analytics/reports?path=%2Fshared%2FNortheastern%20University%2FJohnShared%2FAPI%2FNewBooksWeb&limit={records}&apikey={almaKey}"
     print(almaUrl)
     response = requests.get(almaUrl)
     if response.status_code == 200:
@@ -129,6 +131,9 @@ def getBooks():
             location = row['Column13']
             print(f"Location: {location}")
             book['location'] = location
+            
+            subject = row['Column21']
+            book['subject'] = subject
             
             googleBook = getSummary(isbn)
 

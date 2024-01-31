@@ -11,8 +11,9 @@ import re
 import googleBooksEnv
 
 records = sys.argv[1]
+outfile = sys.argv[2]
 
-outfile = googleBooksEnv.path
+# outfile = googleBooksEnv.path
 googleKey = googleBooksEnv.key
 almaKey = googleBooksEnv.almaKey
 print(f"Writing data to {outfile}")

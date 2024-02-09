@@ -11,10 +11,10 @@ import re
 import googleBooksEnv
 
 records = sys.argv[1]
-outfile = sys.argv[2]
+# outfile = sys.argv[2]
 
-# outfile = googleBooksEnv.path
-googleKey = googleBooksEnv.key
+outfile = googleBooksEnv.path
+googleKey = googleBooksEnv.googleKey
 almaKey = googleBooksEnv.almaKey
 print(f"Writing data to {outfile}")
 
@@ -31,7 +31,6 @@ def checkOpenLibImage(isbn):
     else:
         return None
     
-
 def titlecase(s):
     return re.sub(
         r"[A-Za-z]+('[A-Za-z]+)?",
@@ -80,84 +79,105 @@ def getGoogleCover(googleBook):
     else:
         return None
 
-
-jsonOut = []
-
 def getBooks():
-    count = 0
-    books = []
-    almaUrl = f"https://api-na.hosted.exlibrisgroup.com/almaws/v1/analytics/reports?path=%2Fshared%2FNortheastern%20University%2FJohnShared%2FAPI%2FNewBooksWeb&limit={records}&apikey={almaKey}"
-    print(almaUrl)
-    response = requests.get(almaUrl)
-    if response.status_code == 200:
-        my_dict = xmltodict.parse(response.content)
-        rows = my_dict['report']['QueryResult']['ResultXml']['rowset']['Row']
-        for row in rows:
-            time.sleep(1)
-            print("---------------------------")
-            book = {}
-            
-            mmsId = row['Column4']
-            book['mmsId'] = mmsId
-            
-            isbns = row['Column3']
-            match = re.match(r'.*(9\d{12})', isbns)
-            isbn = match.groups()[0]
-            print(isbn)
-            book['isbn'] = isbn
-            
-            title = row['Column7']
-            title = titlecase(title)
-            title = re.sub("\/", "", title)
-            print(title)
-            book['title'] = title
-            
-            if 'Column1' in row:
-                author = row['Column1']
-                author = titlecase(author)
-            else:
-                author = ""
-            book['author'] = author
-            
-            recStatus = row['Column19']
-            book['recStatus'] = recStatus
-            
-            recDate = row['Column16']
-            book['recDate'] = recDate
-            
-            callNo = row['Column10']
-            print(f"Call Number: {callNo}")
-            book['callNo'] = callNo
-            
-            location = row['Column13']
-            print(f"Location: {location}")
-            book['location'] = location
-            
-            subject = row['Column21']
-            book['subject'] = subject
-            
-            googleBook = getSummary(isbn)
+    print("Opening current data file...")
+    
+    with open(outfile) as json_file:
+        jsonData = json.load(json_file)
+        dataLength = len(jsonData)
+        print(f"Found {dataLength} existing records")
+        
+        newCount = 0
+        existingCount = 0
+        # books = []
+        almaUrl = f"https://api-na.hosted.exlibrisgroup.com/almaws/v1/analytics/reports?path=%2Fshared%2FNortheastern%20University%2FJohnShared%2FAPI%2FNewBooksWeb&limit={records}&apikey={almaKey}"
+        print(almaUrl)
+        response = requests.get(almaUrl)
+        if response.status_code == 200:
+            my_dict = xmltodict.parse(response.content)
+            rows = my_dict['report']['QueryResult']['ResultXml']['rowset']['Row']
+            for row in rows:
+                time.sleep(1)
+                print("---------------------------")
+                book = {}
+                
+                mmsId = row['Column4']
+                if any(dictionary.get('mmsId') == mmsId for dictionary in jsonData):
+                    print("ALREADY IN DATA")
+                    existingCount += 1
+                    continue
+                else:
+                    print("NOT IN DATA")
+                
+                book['mmsId'] = mmsId
+                
+                isbns = row['Column3']
+                match = re.match(r'.*(9\d{12})', isbns)
+                isbn = match.groups()[0]
+                print(isbn)
+                book['isbn'] = isbn
+                
+                title = row['Column7']
+                title = titlecase(title)
+                title = re.sub("\/", "", title)
+                print(title)
+                book['title'] = title
+                
+                if 'Column1' in row:
+                    author = row['Column1']
+                    author = titlecase(author)
+                else:
+                    author = ""
+                book['author'] = author
+                
+                recStatus = row['Column19']
+                book['recStatus'] = recStatus
+                
+                recDate = row['Column16']
+                book['recDate'] = recDate
+                
+                callNo = row['Column10']
+                print(f"Call Number: {callNo}")
+                book['callNo'] = callNo
+                
+                location = row['Column13']
+                print(f"Location: {location}")
+                book['location'] = location
+                
+                subject = row['Column21']
+                book['subject'] = subject
+                
+                googleBook = getSummary(isbn)
 
-            try:
-                if 'description' in googleBook['items'][0]['volumeInfo']:
-                    summary = googleBook['items'][0]['volumeInfo']['description']
-                    book['summary'] = summary
+                try:
+                    if 'description' in googleBook['items'][0]['volumeInfo']:
+                        summary = googleBook['items'][0]['volumeInfo']['description']
+                        book['summary'] = summary
+                    else:
+                        book['summary'] = "No summary."
+                except:
+                    print("Error encountered parsing Google Metadata")
+                    print(json.dumps(googleBook, indent=4))
+                    continue
+                
+                hasOpenLibrary = checkOpenLibImage(isbn)
+                
+                if hasOpenLibrary:
+                    if 'thumbnail_url' in hasOpenLibrary:
+                        coverurl = f"https://covers.openlibrary.org/b/isbn/{isbn}-L.jpg"
+                        print(f"Using OpenLibrary Cover: {coverurl}")
+                        book['coverurl'] = coverurl
+                    else:
+                        print("NO OPEN LIBRARY COVER - Checking Google Books...")
+                        googleCover = getGoogleCover(googleBook)
+                        if googleCover is None:
+                            print(f"No Google cover - Skipping title")
+                            continue
+                        else:
+                            print(f"Using Google Cover: {googleCover}")
+                            book['coverurl'] = googleCover
                 else:
-                    book['summary'] = "No summary."
-            except:
-                print("Error encountered parsing Google Metadata")
-                print(json.dumps(googleBook, indent=4))
-                continue
-            
-            hasOpenLibrary = checkOpenLibImage(isbn)
-            
-            if hasOpenLibrary:
-                if 'thumbnail_url' in hasOpenLibrary:
-                    coverurl = f"https://covers.openlibrary.org/b/isbn/{isbn}-L.jpg"
-                    print(f"Using OpenLibrary Cover: {coverurl}")
-                    book['coverurl'] = coverurl
-                else:
-                    print("NO OPEN LIBRARY COVER - Checking Google Books...")
+                    print("NO OPEN LIBRARY METADATA - Checking Google Books...")
                     googleCover = getGoogleCover(googleBook)
                     if googleCover is None:
                         print(f"No Google cover - Skipping title")
@@ -165,53 +185,45 @@ def getBooks():
                     else:
                         print(f"Using Google Cover: {googleCover}")
                         book['coverurl'] = googleCover
-            else:
-                print("NO OPEN LIBRARY METADATA - Checking Google Books...")
-                googleCover = getGoogleCover(googleBook)
-                if googleCover is None:
-                    print(f"No Google cover - Skipping title")
-                    continue
-                else:
-                    print(f"Using Google Cover: {googleCover}")
-                    book['coverurl'] = googleCover
-            
-            print(f"Checking image site for cover: {book['coverurl']}")
-            try:
-                coverurlResponse = requests.get(book['coverurl'], allow_redirects=True)
+                
+                print(f"Checking image site for cover: {book['coverurl']}")
+                try:
+                    coverurlResponse = requests.get(book['coverurl'], allow_redirects=True)
 
-                if coverurlResponse.history:
-                    final_redirect = coverurlResponse.history[-1]
-                    final_headers = final_redirect.headers
-                    imageURL = final_headers["location"]
-                    imageURLResponse = requests.get(imageURL, stream=True)
-                    raw_content = imageURLResponse.raw.read()
-                    image_size = len(raw_content)
-                    print(f"IMAGE-SIZE(OL): {image_size}")
-                    
-                else:
-                    image_size = coverurlResponse.headers.get("Content-Length")
-                    print(f"IMAGE-SIZE(Google): {image_size}")
-                    if image_size is None:
+                    if coverurlResponse.history:
+                        final_redirect = coverurlResponse.history[-1]
+                        final_headers = final_redirect.headers
+                        imageURL = final_headers["location"]
                         imageURLResponse = requests.get(imageURL, stream=True)
                         raw_content = imageURLResponse.raw.read()
                         image_size = len(raw_content)
-                        print(f"IMAGE-SIZE(none): {image_size}")
-                
-                if int(image_size) > 15000:    
-                    books.append(book)
-                    count = count + 1
-                else:
-                    print("Thumbnail too small")
-            except:
-                print(f"ERROR getting Cover URL: {book['coverurl']}")
-    else:
-        sys.exit("FAILED TO GET ALALYTICS DATA")
-        
-    return books, count
+                        print(f"IMAGE-SIZE(OL): {image_size}")
+                        
+                    else:
+                        image_size = coverurlResponse.headers.get("Content-Length")
+                        print(f"IMAGE-SIZE(Google): {image_size}")
+                        if image_size is None:
+                            imageURLResponse = requests.get(imageURL, stream=True)
+                            raw_content = imageURLResponse.raw.read()
+                            image_size = len(raw_content)
+                            print(f"IMAGE-SIZE(none): {image_size}")
+                    
+                    if int(image_size) > 15000:    
+                        print("Adding book to data file...")
+                        jsonData.append(book)
+                        newCount = newCount + 1
+                    else:
+                        print("Thumbnail too small")
+                except:
+                    print(f"ERROR getting Cover URL: {book['coverurl']}")
+        else:
+            sys.exit("FAILED TO GET ALALYTICS DATA")
+            
+        return jsonData, newCount, existingCount
     
-jsonOut, count = getBooks()
+jsonOut, count, existingCount = getBooks()
 
-print(f"Writing {count} books to {outfile}")
+print(f"Appending {count} new book(s) to exising {existingCount} books in {outfile}.")
         
 with open(outfile, "w") as j:
     json.dump(jsonOut, j, indent=4)

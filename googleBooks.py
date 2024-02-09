@@ -223,6 +223,7 @@ def getBooks():
     
 jsonOut, count, existingCount, dataLength = getBooks()
 
+print(f"Initial size of {outfile}: {dataLength}")
 print(f"Found {existingCount} book(s) already in {outfile}.")
 print(f"Appending {count} new book(s) to {outfile}.")
 newCount = dataLength + count

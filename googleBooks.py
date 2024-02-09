@@ -219,11 +219,14 @@ def getBooks():
         else:
             sys.exit("FAILED TO GET ALALYTICS DATA")
             
-        return jsonData, newCount, existingCount
+        return jsonData, newCount, existingCount, dataLength
     
-jsonOut, count, existingCount = getBooks()
+jsonOut, count, existingCount, dataLength = getBooks()
 
-print(f"Appending {count} new book(s) to exising {existingCount} books in {outfile}.")
+print(f"Found {existingCount} book(s) already in {outfile}.")
+print(f"Appending {count} new book(s) to {outfile}.")
+newCount = dataLength + count
+print(f"New size of {outfile}: {newCount}")
         
 with open(outfile, "w") as j:
     json.dump(jsonOut, j, indent=4)

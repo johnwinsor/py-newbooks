@@ -1,22 +1,19 @@
 #!/usr/bin/env python3
-#USAGE: googleBooks.py 50 ../../html/data.json  > out.txt
 
 import sys
 import os
 import requests
 import json
 import time
-import xmltodict
 import re
+import csv
 
 import googleBooksEnv
-
-records = sys.argv[1]
-# outfile = sys.argv[2]
-
-outfile = googleBooksEnv.path
 googleKey = googleBooksEnv.googleKey
-almaKey = googleBooksEnv.almaKey
+
+infile = 'AllNewBooks.csv'
+outfile = 'newbooks.json'
+
 print(f"Writing data to {outfile}")
 
 def checkOpenLibImage(isbn):
@@ -79,7 +76,7 @@ def getGoogleCover(googleBook):
             return googleBigCover
     else:
         return None
-
+    
 def getBooks():
     print("Opening current data file...")
     
@@ -90,63 +87,64 @@ def getBooks():
         
         newCount = 0
         existingCount = 0
-        # books = []
-        almaUrl = f"https://api-na.hosted.exlibrisgroup.com/almaws/v1/analytics/reports?path=%2Fshared%2FNortheastern%20University%2FJohnShared%2FAPI%2FNewBooksWeb&limit={records}&apikey={almaKey}"
-        print(almaUrl)
-        response = requests.get(almaUrl)
-        if response.status_code == 200:
-            my_dict = xmltodict.parse(response.content)
-            rows = my_dict['report']['QueryResult']['ResultXml']['rowset']['Row']
+        
+        with open(infile, mode='r', encoding='utf-8-sig') as csv_file:
+            rows = csv.DictReader(csv_file)
             for row in rows:
-                time.sleep(1)
                 print("---------------------------")
+                print(row)
+                time.sleep(1)
                 book = {}
                 
-                mmsId = row['Column4']
+                mmsId = row['MMS Id']
                 if any(dictionary.get('mmsId') == mmsId for dictionary in jsonData):
-                    print("ALREADY IN DATA")
+                    print(f"{mmsId }ALREADY IN DATA")
                     existingCount += 1
                     continue
                 else:
-                    print("NOT IN DATA")
+                    print(f"{mmsId} NOT IN DATA")
                 
                 book['mmsId'] = mmsId
                 
-                isbns = row['Column3']
-                match = re.match(r'.*(9\d{12})', isbns)
-                isbn = match.groups()[0]
-                print(isbn)
+                isbn = row['ISBN13']
                 book['isbn'] = isbn
                 
-                title = row['Column7']
+                # isbns = row['ISBN']
+                # match = re.match(r'.*(9\d{12})', isbns)
+                # isbn = match.groups()[0]
+                # print(isbn)
+                # book['isbn'] = isbn
+                
+                title = row['Title']
                 title = titlecase(title)
                 title = re.sub("\/", "", title)
                 print(title)
                 book['title'] = title
                 
-                if 'Column1' in row:
-                    author = row['Column1']
+                if 'Author' in row:
+                    author = row['Author']
                     author = titlecase(author)
                 else:
                     author = ""
                 book['author'] = author
                 
-                recStatus = row['Column19']
+                recStatus = row['Receiving Status']
                 book['recStatus'] = recStatus
                 
-                recDate = row['Column16']
+                recDate = row['Receiving Date (Latest in POL)']
                 book['recDate'] = recDate
                 
-                callNo = row['Column10']
-                print(f"Call Number: {callNo}")
-                book['callNo'] = callNo
+                callno = row['Permanent Call Number']
+                book['callNo'] = callno
                 
-                location = row['Column13']
-                print(f"Location: {location}")
+                location = row['Location Name']
                 book['location'] = location
                 
-                subject = row['Column21']
+                subject = row['Reporting Code - 1st']
                 book['subject'] = subject
+                
+                format = row['Format']
+                book['format'] = format
                 
                 googleBook = getSummary(isbn)
 
@@ -211,14 +209,13 @@ def getBooks():
                     
                     if int(image_size) > 15000:    
                         print("Adding book to data file...")
+                        print(book)
                         jsonData.append(book)
                         newCount = newCount + 1
                     else:
                         print("Thumbnail too small")
                 except:
                     print(f"ERROR getting Cover URL: {book['coverurl']}")
-        else:
-            sys.exit("FAILED TO GET ALALYTICS DATA")
             
         return jsonData, newCount, existingCount, dataLength
     
